@@ -12,6 +12,7 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "credentialsSource": "remote",
       "android": {
         "buildType": "apk"
       }
@@ -19,6 +20,7 @@
     "production": {
       "autoIncrement": true,
       "channel": "production",
+      "credentialsSource": "remote",
       "android": {
         "buildType": "app-bundle"
       },
@@ -29,6 +31,7 @@
     "hotfix": {
       "distribution": "internal",
       "channel": "hotfix",
+      "credentialsSource": "remote",
       "android": {
         "buildType": "apk"
       }
