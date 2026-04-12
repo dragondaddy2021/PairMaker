@@ -1,0 +1,81 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-type:
+    name: Lint & TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npx eslint "src/**/*.{ts,tsx}" --max-warnings=0
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+  api-tests:
+    name: API Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-type
+    env:
+      API_BASE_URL: ${{ secrets.API_BASE_URL_STAGING }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run API tests
+        run: npx vitest run --config tests/api/vitest.config.ts
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results
+          path: reports/api-test-results.xml
+
+  notify:
+    name: Slack Notification
+    runs-on: ubuntu-latest
+    needs: [lint-and-type, api-tests]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ needs.api-tests.result }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: npx ts-node scripts/slack-notify.ts pr

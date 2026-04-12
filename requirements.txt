@@ -1,0 +1,17 @@
+# PairMaker — Python test dependencies
+# pip install -r requirements.txt
+
+# ── Mobile E2E (pytest + Appium) ─────────────────────────────────────────────
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+Appium-Python-Client>=3.1.0
+selenium>=4.18.0
+
+# ── API tests (pytest + httpx) ───────────────────────────────────────────────
+httpx>=0.27.0
+python-dotenv>=1.0.0
+pyjwt>=2.8.0
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+pytest-html>=4.1.0
+pytest-xdist>=3.5.0

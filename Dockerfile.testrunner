@@ -1,0 +1,28 @@
+FROM node:20-slim
+
+# 安裝 Android SDK 工具 (for adb) 及 Allure CLI
+RUN apt-get update && apt-get install -y \
+    openjdk-17-jre-headless \
+    curl \
+    unzip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安裝 Allure CLI
+RUN curl -Lo allure.tgz "https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.27.0/allure-commandline-2.27.0.tgz" \
+    && tar -xzf allure.tgz -C /opt \
+    && ln -s /opt/allure-2.27.0/bin/allure /usr/local/bin/allure \
+    && rm allure.tgz
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+# 設定 Appium
+RUN npm install -g appium \
+    && appium driver install uiautomator2
+
+ENTRYPOINT ["/app/scripts/ecs-test-runner.sh"]

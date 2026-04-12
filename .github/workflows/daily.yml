@@ -1,0 +1,117 @@
+name: Daily Regression
+
+on:
+  schedule:
+    - cron: '0 1 * * *'   # 每天 UTC 01:00 (台灣時間 09:00)
+  workflow_dispatch:
+
+jobs:
+  api-regression:
+    name: API Regression Tests
+    runs-on: ubuntu-latest
+    env:
+      API_BASE_URL: ${{ secrets.API_BASE_URL_PROD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run all API tests
+        run: npx vitest run --config tests/api/vitest.config.ts
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-api-results-${{ github.run_id }}
+          path: reports/
+
+  appium-smoke:
+    name: Appium Smoke Tests (Android)
+    runs-on: ubuntu-latest
+    env:
+      PLATFORM: android
+      APP_PATH: ${{ vars.LATEST_APK_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          script: echo "Emulator started"
+
+      - run: npm ci
+
+      - name: Install Appium
+        run: npm install -g appium && appium driver install uiautomator2
+
+      - name: Run Smoke Tests
+        run: npx wdio run tests/appium/wdio.conf.ts --spec "tests/appium/smoke/*.test.ts"
+
+      - name: Generate Allure Report
+        if: always()
+        run: npx allure generate allure-results --clean -o allure-report
+
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-${{ github.run_id }}
+          path: allure-report/
+
+  sheets-sync:
+    name: Sync Test Results to Google Sheets
+    runs-on: ubuntu-latest
+    needs: [api-regression, appium-smoke]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          path: reports/
+
+      - name: Sync to Google Sheets
+        env:
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: npx ts-node scripts/sheet-sync.ts
+
+  notify:
+    name: Daily Report Slack
+    runs-on: ubuntu-latest
+    needs: [api-regression, appium-smoke]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Send daily report
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          API_STATUS:    ${{ needs.api-regression.result }}
+          APPIUM_STATUS: ${{ needs.appium-smoke.result }}
+          RUN_ID:        ${{ github.run_id }}
+        run: npx ts-node scripts/slack-notify.ts daily

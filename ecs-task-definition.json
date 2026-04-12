@@ -1,0 +1,38 @@
+{
+  "family": "pairmaker-test-runner",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "4096",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn":      "arn:aws:iam::ACCOUNT_ID:role/pairmakerTestRunnerRole",
+  "containerDefinitions": [
+    {
+      "name": "test-runner",
+      "image": "ACCOUNT_ID.dkr.ecr.ap-northeast-1.amazonaws.com/pairmaker-testrunner:latest",
+      "essential": true,
+      "environment": [
+        { "name": "AWS_REGION",         "value": "ap-northeast-1" },
+        { "name": "S3_REPORT_BUCKET",   "value": "pairmaker-test-reports" }
+      ],
+      "secrets": [
+        {
+          "name":      "API_BASE_URL",
+          "valueFrom": "arn:aws:ssm:ap-northeast-1:ACCOUNT_ID:parameter/pairmaker/api-base-url"
+        },
+        {
+          "name":      "SLACK_WEBHOOK_URL",
+          "valueFrom": "arn:aws:ssm:ap-northeast-1:ACCOUNT_ID:parameter/pairmaker/slack-webhook"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":         "/ecs/pairmaker-test-runner",
+          "awslogs-region":        "ap-northeast-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

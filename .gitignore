@@ -32,6 +32,10 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+.env.local
+.env.development
+.env.production
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +43,29 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Secrets (NEVER commit these)
+secrets/
+*.pem
+*.keystore
+google-services.json
+GoogleService-Info.plist
+google-play-sa.json
+gcp-sa.json
+
+# Build output
+build/
+
+# Test reports & artifacts
+allure-results/
+allure-report/
+reports/
+
+# Claude Code local config (IDE settings, not for version control)
+.claude/settings.local.json
+
+# CMS data
+cms/data/
+
+# Release artifacts
+release-notes.md
