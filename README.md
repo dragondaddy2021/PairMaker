@@ -15,12 +15,7 @@
 
 ## 下載試用（Android）
 
-### 方式一：掃描 QR Code
-（請在此放置最新 APK 的 QR Code 圖片）
-
-### 方式二：直接下載
-[📥 下載最新 Android 試用版 APK]
-（請在此放置最新 EAS Build 下載連結）
+[📥 下載最新 EAS Build 試用版 APK](https://expo.dev/artifacts/eas/iWTwgSq4PqFFv9RQvCaXrn.apk)
 
 **安裝步驟：**
 1. 點擊上方下載連結
