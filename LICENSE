@@ -1,17 +1,19 @@
-Copyright (c) 2025 Dragon & PairMaker Studio. All Rights Reserved.
+MIT License © 2026 Dragon
 
-本軟體及相關文件（以下簡稱「本軟體」）之著作權歸著作人所有。
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-未經著作人事先書面授權，任何人不得：
-1. 複製、重製、散布本軟體之全部或部分；
-2. 修改、改作、翻譯本軟體；
-3. 以任何形式公開展示或對外提供本軟體；
-4. 進行反向工程、反組譯或反編譯本軟體；
-5. 移除或修改本軟體中任何著作權聲明或授權標示。
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-本軟體「按現狀」提供，著作人不對本軟體提供任何明示或默示之保證，
-包括但不限於適銷性、特定用途適用性及不侵權之保證。
-著作人對任何因使用本軟體所生之直接、間接、偶發、特殊或衍生損害，
-概不負責。
-
-如需授權洽詢，請聯絡：[聯絡信箱]
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
