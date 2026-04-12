@@ -15,7 +15,7 @@
 
 ## 下載試用（Android）
 
-[📥 下載最新 EAS Build 試用版 APK](https://expo.dev/artifacts/eas/iWTwgSq4PqFFv9RQvCaXrn.apk)
+[📥 下載最新 Android 試用版 APK](https://github.com/dragondaddy2021/PairMaker/releases/latest)
 
 **安裝步驟：**
 1. 點擊上方下載連結

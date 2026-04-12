@@ -1,0 +1,156 @@
+name: Release APK to GitHub Releases
+
+# 觸發條件：
+# 1. 手動觸發（輸入版本號）
+# 2. EAS Build workflow 完成後自動觸發（android preview/production）
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本號（例如：1.0.0）。留空則從 app.json 自動讀取'
+        required: false
+        default: ''
+      eas_build_url:
+        description: 'EAS Build APK 下載網址（留空則跳過上傳 APK）'
+        required: false
+        default: ''
+
+  workflow_run:
+    workflows: ['EAS Build']
+    types: [completed]
+
+jobs:
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    # workflow_run 觸發時，只在 EAS Build 成功後執行
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success')
+
+    permissions:
+      contents: write   # 允許建立 Release 與上傳 Assets
+
+    steps:
+      # ── 1. 取得原始碼 ─────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── 2. 從 app.json 讀取版本號 ─────────────────────────────────────────────
+      - name: Read version from app.json
+        id: version
+        run: |
+          APP_VERSION=$(node -p "require('./app.json').expo.version")
+          INPUT_VERSION="${{ inputs.version }}"
+          # 優先使用手動輸入的版本號，否則從 app.json 讀取
+          FINAL_VERSION="${INPUT_VERSION:-$APP_VERSION}"
+          TAG="v${FINAL_VERSION}"
+          echo "version=${FINAL_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}"               >> "$GITHUB_OUTPUT"
+          echo "版本：${FINAL_VERSION}，Tag：${TAG}"
+
+      # ── 3. 安裝 Node.js（產生 Release Notes 用）──────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 4. 自動產生 Release Notes（從 git log）───────────────────────────────
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          # 取得上一個 tag；若無則從第一個 commit 開始
+          PREV_TAG=$(git tag --sort=-version:refname | head -n 1 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${PREV_TAG}..HEAD"
+          fi
+
+          # 組合 Release Notes
+          {
+            echo "## PairMaker ${{ steps.version.outputs.version }}"
+            echo ""
+            echo "### 下載"
+            echo "👇 下方 Assets 區塊下載 \`PairMaker-${{ steps.version.outputs.version }}.apk\`"
+            echo ""
+            echo "### 變更記錄"
+            git log $RANGE --pretty=format:"- %s" --no-merges | head -50 || echo "- 初始版本"
+            echo ""
+            echo ""
+            echo "---"
+            echo "> 試用版說明：用戶資料為測試假資料"
+          } > release-notes.md
+
+          cat release-notes.md
+
+      # ── 5. 下載 EAS APK（若有提供網址）─────────────────────────────────────
+      - name: Download APK from EAS
+        id: apk
+        if: inputs.eas_build_url != ''
+        run: |
+          APK_NAME="PairMaker-${{ steps.version.outputs.version }}.apk"
+          echo "正在下載 APK：${{ inputs.eas_build_url }}"
+          curl -L -o "$APK_NAME" "${{ inputs.eas_build_url }}"
+          if [ -f "$APK_NAME" ]; then
+            echo "apk_path=${APK_NAME}" >> "$GITHUB_OUTPUT"
+            echo "has_apk=true"         >> "$GITHUB_OUTPUT"
+            ls -lh "$APK_NAME"
+          else
+            echo "has_apk=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ APK 下載失敗，將建立不含 APK 的 Release"
+          fi
+
+      # ── 6. 建立或更新 GitHub Release ─────────────────────────────────────────
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG:          ${{ steps.version.outputs.tag }}
+          VERSION:      ${{ steps.version.outputs.version }}
+        run: |
+          # 若 tag 已存在則先刪除（允許重新發布相同版本）
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG 已存在，刪除舊 Release..."
+            gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          fi
+
+          # 建立新 Release
+          gh release create "$TAG" \
+            --title "PairMaker v${VERSION}" \
+            --notes-file release-notes.md \
+            --latest
+
+          echo "✅ GitHub Release ${TAG} 建立成功"
+
+      # ── 7. 上傳 APK 到 Release Assets ────────────────────────────────────────
+      - name: Upload APK to Release
+        if: steps.apk.outputs.has_apk == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG:          ${{ steps.version.outputs.tag }}
+          APK_PATH:     ${{ steps.apk.outputs.apk_path }}
+        run: |
+          gh release upload "$TAG" "$APK_PATH" --clobber
+          echo "✅ APK 已上傳至 Release Assets"
+
+      # ── 8. 輸出結果摘要 ──────────────────────────────────────────────────────
+      - name: Summary
+        env:
+          TAG:     ${{ steps.version.outputs.tag }}
+          HAS_APK: ${{ steps.apk.outputs.has_apk }}
+        run: |
+          echo "## Release 摘要" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 項目 | 值 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 版本 | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| APK 上傳 | ${HAS_APK:-false} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Release 連結 | https://github.com/${{ github.repository }}/releases/tag/${TAG} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 最新版連結 | https://github.com/${{ github.repository }}/releases/latest |" >> "$GITHUB_STEP_SUMMARY"
