@@ -1,8 +1,10 @@
 name: Daily Regression
 
+# Demo 模式：定時排程已停用，只保留手動觸發避免每天送出失敗通知。
+# 如需恢復每日自動執行，取消下方 schedule 註解即可。
 on:
-  schedule:
-    - cron: '0 1 * * *'   # 每天 UTC 01:00 (台灣時間 09:00)
+  # schedule:
+  #   - cron: '0 1 * * *'   # 每天 UTC 01:00 (台灣時間 09:00)
   workflow_dispatch:
 
 jobs:
@@ -12,20 +14,34 @@ jobs:
     env:
       API_BASE_URL: ${{ secrets.API_BASE_URL_PROD }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Gate — check API secret
+        id: gate
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            echo "::notice::API_BASE_URL_PROD 未設定，跳過 API 測試（demo 模式）"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - uses: actions/setup-node@v4
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - run: npm ci
+      - if: steps.gate.outputs.skip != 'true'
+        run: npm ci
 
       - name: Run all API tests
+        if: steps.gate.outputs.skip != 'true'
         run: npx vitest run --config tests/api/vitest.config.ts
 
       - name: Upload test results
-        if: always()
+        if: always() && steps.gate.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: daily-api-results-${{ github.run_id }}
@@ -38,33 +54,50 @@ jobs:
       PLATFORM: android
       APP_PATH: ${{ vars.LATEST_APK_PATH }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Gate — check APK path
+        id: gate
+        run: |
+          if [ -z "$APP_PATH" ]; then
+            echo "::notice::vars.LATEST_APK_PATH 未設定，跳過 Appium 測試（demo 模式）"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - uses: actions/setup-node@v4
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Setup Android emulator
+        if: steps.gate.outputs.skip != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
+          arch: x86_64
           script: echo "Emulator started"
 
-      - run: npm ci
+      - if: steps.gate.outputs.skip != 'true'
+        run: npm ci
 
       - name: Install Appium
+        if: steps.gate.outputs.skip != 'true'
         run: npm install -g appium && appium driver install uiautomator2
 
       - name: Run Smoke Tests
+        if: steps.gate.outputs.skip != 'true'
         run: npx wdio run tests/appium/wdio.conf.ts --spec "tests/appium/smoke/*.test.ts"
 
       - name: Generate Allure Report
-        if: always()
-        run: npx allure generate allure-results --clean -o allure-report
+        if: always() && steps.gate.outputs.skip != 'true'
+        run: npx allure-commandline generate allure-results --clean -o allure-report
 
       - name: Upload Allure Report
-        if: always()
+        if: always() && steps.gate.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: allure-report-${{ github.run_id }}
@@ -75,24 +108,40 @@ jobs:
     runs-on: ubuntu-latest
     needs: [api-regression, appium-smoke]
     if: always()
+    env:
+      GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Gate — check Google Sheets secret
+        id: gate
+        run: |
+          if [ -z "$GOOGLE_SHEETS_ID" ]; then
+            echo "::notice::GOOGLE_SHEETS_ID 未設定，跳過 Sheets 同步（demo 模式）"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - uses: actions/setup-node@v4
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - run: npm ci
+      - if: steps.gate.outputs.skip != 'true'
+        run: npm ci
 
       - name: Download test results
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           path: reports/
 
       - name: Sync to Google Sheets
+        if: steps.gate.outputs.skip != 'true'
         env:
-          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
           GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
         run: npx ts-node scripts/sheet-sync.ts
 
@@ -101,16 +150,34 @@ jobs:
     runs-on: ubuntu-latest
     needs: [api-regression, appium-smoke]
     if: always()
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Gate — check Slack webhook
+        id: gate
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "::notice::SLACK_WEBHOOK_URL 未設定，跳過 Slack 通知（demo 模式）"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci
+
+      - if: steps.gate.outputs.skip != 'true'
+        run: npm ci
+
       - name: Send daily report
+        if: steps.gate.outputs.skip != 'true'
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           API_STATUS:    ${{ needs.api-regression.result }}
           APPIUM_STATUS: ${{ needs.appium-smoke.result }}
           RUN_ID:        ${{ github.run_id }}
